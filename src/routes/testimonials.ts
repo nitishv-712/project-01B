@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import Testimonial from "../models/Testimonial";
-import { authenticate, authorize, AuthRequest } from "../middleware/auth";
+import { authenticate, authorize, authorizePermission, AuthRequest } from "../middleware/auth";
 
 const router = Router();
 
@@ -14,8 +14,8 @@ router.get("/", async (_req: Request, res: Response) => {
   }
 });
 
-// GET /api/testimonials/all — admin: includes inactive
-router.get("/all", authenticate, authorize("admin"), async (_req: AuthRequest, res: Response) => {
+// GET /api/testimonials/all — requires testimonials:read
+router.get("/all", authenticate, authorizePermission("testimonials:read"), async (_req: AuthRequest, res: Response) => {
   try {
     const testimonials = await Testimonial.find().lean();
     res.json({ success: true, data: testimonials });
@@ -24,8 +24,8 @@ router.get("/all", authenticate, authorize("admin"), async (_req: AuthRequest, r
   }
 });
 
-// POST /api/testimonials — admin only
-router.post("/", authenticate, authorize("admin"), async (req: AuthRequest, res: Response) => {
+// POST /api/testimonials — requires testimonials:create
+router.post("/", authenticate, authorizePermission("testimonials:create"), async (req: AuthRequest, res: Response) => {
   try {
     const testimonial = await Testimonial.create(req.body);
     res.status(201).json({ success: true, data: testimonial });
@@ -34,8 +34,8 @@ router.post("/", authenticate, authorize("admin"), async (req: AuthRequest, res:
   }
 });
 
-// PUT /api/testimonials/:id — admin only
-router.put("/:id", authenticate, authorize("admin"), async (req: AuthRequest, res: Response) => {
+// PUT /api/testimonials/:id — requires testimonials:update
+router.put("/:id", authenticate, authorizePermission("testimonials:update"), async (req: AuthRequest, res: Response) => {
   try {
     const testimonial = await Testimonial.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
@@ -51,8 +51,8 @@ router.put("/:id", authenticate, authorize("admin"), async (req: AuthRequest, re
   }
 });
 
-// PATCH /api/testimonials/:id/toggle — admin only: toggle active status
-router.patch("/:id/toggle", authenticate, authorize("admin"), async (req: AuthRequest, res: Response) => {
+// PATCH /api/testimonials/:id/toggle — requires testimonials:update
+router.patch("/:id/toggle", authenticate, authorizePermission("testimonials:update"), async (req: AuthRequest, res: Response) => {
   try {
     const testimonial = await Testimonial.findById(req.params.id);
     if (!testimonial) {
@@ -67,8 +67,8 @@ router.patch("/:id/toggle", authenticate, authorize("admin"), async (req: AuthRe
   }
 });
 
-// DELETE /api/testimonials/:id — admin only
-router.delete("/:id", authenticate, authorize("admin"), async (req: AuthRequest, res: Response) => {
+// DELETE /api/testimonials/:id — requires testimonials:delete
+router.delete("/:id", authenticate, authorizePermission("testimonials:delete"), async (req: AuthRequest, res: Response) => {
   try {
     const testimonial = await Testimonial.findByIdAndDelete(req.params.id);
     if (!testimonial) {

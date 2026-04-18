@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { JwtPayload, Role } from "../types";
+import { JwtPayload, Role, Permission } from "../types";
 
 export interface AuthRequest extends Request {
   user?: JwtPayload;
@@ -20,12 +20,36 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
   }
 }
 
+// Role-based: superadmin always passes, then check listed roles
 export function authorize(...roles: Role[]) {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
-    if (!req.user || !roles.includes(req.user.role)) {
-      res.status(403).json({ success: false, error: "Forbidden: insufficient permissions" });
+    if (!req.user) {
+      res.status(401).json({ success: false, error: "Not authenticated" });
       return;
     }
-    next();
+    if (req.user.role === "superadmin" || roles.includes(req.user.role)) {
+      next();
+      return;
+    }
+    res.status(403).json({ success: false, error: "Forbidden: insufficient role" });
+  };
+}
+
+// Permission-based: superadmin always passes, admin needs the specific permission
+export function authorizePermission(permission: Permission) {
+  return (req: AuthRequest, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: "Not authenticated" });
+      return;
+    }
+    if (req.user.role === "superadmin") {
+      next();
+      return;
+    }
+    if (req.user.role === "admin" && req.user.permissions.includes(permission)) {
+      next();
+      return;
+    }
+    res.status(403).json({ success: false, error: `Forbidden: requires '${permission}' permission` });
   };
 }

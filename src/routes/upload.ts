@@ -1,10 +1,10 @@
 import { Router, Response } from "express";
 import path from "path";
-import { v4 as uuid } from "crypto";
 import { supabase, BUCKETS } from "../config/supabase";
-import { authenticate, authorize, AuthRequest } from "../middleware/auth";
+import { authenticate, authorize, authorizePermission, AuthRequest } from "../middleware/auth";
 import { uploadImage, uploadVideo } from "../middleware/upload";
 import User from "../models/User";
+import Course from "../models/Course";
 
 const router = Router();
 
@@ -66,7 +66,7 @@ router.post(
 router.post(
   "/course-image",
   authenticate,
-  authorize("admin"),
+  authorizePermission("media:upload"),
   uploadImage.single("image"),
   async (req: AuthRequest, res: Response) => {
     try {
@@ -91,10 +91,13 @@ router.post(
 );
 
 // ── POST /api/upload/course-video — admin uploads course video ────────────────
+// Accepts: multipart/form-data
+// Fields:  video (file, required), courseId (string, required), title (string, optional), description (string, optional)
+// Uploads to Supabase videos bucket, saves videoPath + videoMeta to course document
 router.post(
   "/course-video",
   authenticate,
-  authorize("admin"),
+  authorizePermission("media:upload"),
   uploadVideo.single("video"),
   async (req: AuthRequest, res: Response) => {
     try {
@@ -103,9 +106,25 @@ router.post(
         return;
       }
 
-      const { courseId } = req.body; // optional — organise by course folder
-      const folder = courseId ?? "misc";
-      const filePath = `${folder}/${randomName(req.file.originalname)}`;
+      const { courseId, title, description } = req.body;
+
+      if (!courseId) {
+        res.status(400).json({ success: false, error: "courseId is required" });
+        return;
+      }
+
+      const course = await Course.findOne({ id: courseId });
+      if (!course) {
+        res.status(404).json({ success: false, error: "Course not found" });
+        return;
+      }
+
+      // Delete old video from Supabase if one exists
+      if (course.videoPath) {
+        await supabase.storage.from(BUCKETS.courseVideos).remove([course.videoPath]);
+      }
+
+      const filePath = `${courseId}/${randomName(req.file.originalname)}`;
 
       const { error } = await supabase.storage
         .from(BUCKETS.courseVideos)
@@ -116,11 +135,58 @@ router.post(
 
       if (error) throw new Error(error.message);
 
-      // Videos are private — return the storage path, not a public URL
-      // Frontend requests a signed URL when a student needs to watch
-      res.json({ success: true, data: { path: filePath } });
+      // Save videoPath and optional meta to course
+      course.videoPath = filePath;
+      if (title) course.videoMeta = { ...course.videoMeta, title };
+      if (description) course.videoMeta = { ...course.videoMeta, description };
+      await course.save();
+
+      res.json({
+        success: true,
+        data: {
+          courseId,
+          videoPath: filePath,
+          size: req.file.size,
+          mimetype: req.file.mimetype,
+          originalName: req.file.originalname,
+        },
+      });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message ?? "Video upload failed" });
+    }
+  }
+);
+
+// ── DELETE /api/upload/course-video/:courseId — admin removes a course video ──
+router.delete(
+  "/course-video/:courseId",
+  authenticate,
+  authorizePermission("media:delete"),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const course = await Course.findOne({ id: req.params.courseId });
+      if (!course) {
+        res.status(404).json({ success: false, error: "Course not found" });
+        return;
+      }
+
+      if (!course.videoPath) {
+        res.status(400).json({ success: false, error: "No video attached to this course" });
+        return;
+      }
+
+      const { error } = await supabase.storage
+        .from(BUCKETS.courseVideos)
+        .remove([course.videoPath]);
+
+      if (error) throw new Error(error.message);
+
+      course.videoPath = undefined;
+      await course.save();
+
+      res.json({ success: true, message: "Video removed from course" });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message ?? "Failed to remove video" });
     }
   }
 );
@@ -159,7 +225,7 @@ router.post(
 router.delete(
   "/file",
   authenticate,
-  authorize("admin"),
+  authorizePermission("media:delete"),
   async (req: AuthRequest, res: Response) => {
     try {
       const { bucket, filePath } = req.body;

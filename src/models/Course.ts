@@ -1,5 +1,5 @@
 import mongoose, { Schema, Model } from "mongoose";
-import { ICourse, CurriculumSection } from "../types";
+import { ICourse, CurriculumSection, VideoMeta } from "../types";
 
 const CurriculumSchema = new Schema<CurriculumSection>(
   { section: String, lessons: Number },
@@ -28,6 +28,12 @@ const CourseSchema = new Schema<ICourse>(
     curriculum: [CurriculumSchema],
     featured: { type: Boolean, default: false },
     active: { type: Boolean, default: true },
+    videoPath: { type: String, default: null },  // Supabase storage path
+    previewUrl: { type: String, default: null }, // public preview URL
+    videoMeta: {
+      title: { type: String, default: null },
+      description: { type: String, default: null },
+    },
   },
   { timestamps: true }
 );

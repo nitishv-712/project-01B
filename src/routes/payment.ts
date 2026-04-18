@@ -3,7 +3,7 @@ import crypto from "crypto";
 import Course from "../models/Course";
 import Order from "../models/Order";
 import User from "../models/User";
-import { authenticate, authorize, AuthRequest } from "../middleware/auth";
+import { authenticate, authorize, authorizePermission, AuthRequest } from "../middleware/auth";
 
 const router = Router();
 
@@ -119,8 +119,8 @@ router.get("/orders", authenticate, authorize("user"), async (req: AuthRequest, 
   }
 });
 
-// GET /api/payment/orders/all — admin views all orders
-router.get("/orders/all", authenticate, authorize("admin"), async (_req: AuthRequest, res: Response) => {
+// GET /api/payment/orders/all — requires orders:read
+router.get("/orders/all", authenticate, authorizePermission("orders:read"), async (_req: AuthRequest, res: Response) => {
   try {
     const orders = await Order.find().sort({ createdAt: -1 }).lean();
     res.json({ success: true, data: orders });

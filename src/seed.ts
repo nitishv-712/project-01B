@@ -16,6 +16,8 @@ const CourseSchema = new mongoose.Schema({
   curriculum: [{ section: String, lessons: Number }],
   featured: { type: Boolean, default: false },
   active: { type: Boolean, default: true },
+  videoPath: { type: String, default: null },
+  previewUrl: { type: String, default: null },
 }, { timestamps: true });
 
 const StatsSchema = new mongoose.Schema({
@@ -52,6 +54,8 @@ const courses = [
       { section: "Macros & Automation", lessons: 14 },
     ],
     featured: true, active: true,
+    previewUrl: "https://www.youtube.com/embed/HXV3zeQKqGY",
+    videoPath: null,
   },
   {
     id: "power-bi", title: "Power BI Mastery",
@@ -70,6 +74,8 @@ const courses = [
       { section: "Publishing & Sharing", lessons: 10 },
     ],
     featured: true, active: true,
+    previewUrl: "https://www.youtube.com/embed/qDU_QEgLuAk",
+    videoPath: null,
   },
   {
     id: "sql", title: "SQL Mastery",
@@ -88,6 +94,8 @@ const courses = [
       { section: "Advanced SQL", lessons: 8 },
     ],
     featured: true, active: true,
+    previewUrl: "https://www.youtube.com/embed/HXV3zeQKqGY",
+    videoPath: "sql/intro.mp4",
   },
   {
     id: "python", title: "Python Mastery",
@@ -106,6 +114,8 @@ const courses = [
       { section: "Projects", lessons: 13 },
     ],
     featured: false, active: true,
+    previewUrl: "https://www.youtube.com/embed/rfscVS0vtbw",
+    videoPath: null,
   },
 ];
 

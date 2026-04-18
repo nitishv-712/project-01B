@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import Stats from "../models/Stats";
-import { authenticate, authorize, AuthRequest } from "../middleware/auth";
+import { authenticate, authorizePermission, AuthRequest } from "../middleware/auth";
 
 const router = Router();
 
@@ -14,8 +14,8 @@ router.get("/", async (_req: Request, res: Response) => {
   }
 });
 
-// PUT /api/stats — admin only: update platform stats
-router.put("/", authenticate, authorize("admin"), async (req: AuthRequest, res: Response) => {
+// PUT /api/stats — requires stats:update
+router.put("/", authenticate, authorizePermission("stats:update"), async (req: AuthRequest, res: Response) => {
   try {
     const stats = await Stats.findOneAndUpdate({}, req.body, { new: true, upsert: true, runValidators: true });
     res.json({ success: true, data: stats });

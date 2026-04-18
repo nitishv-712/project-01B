@@ -1,11 +1,11 @@
 import { Router, Response } from "express";
 import User from "../models/User";
-import { authenticate, authorize, AuthRequest } from "../middleware/auth";
+import { authenticate, authorize, authorizePermission, AuthRequest } from "../middleware/auth";
 
 const router = Router();
 
-// GET /api/users — admin: list all students
-router.get("/", authenticate, authorize("admin"), async (_req: AuthRequest, res: Response) => {
+// GET /api/users — requires users:read
+router.get("/", authenticate, authorizePermission("users:read"), async (_req: AuthRequest, res: Response) => {
   try {
     const users = await User.find({ role: "user" }).select("-password").lean();
     res.json({ success: true, data: users });
@@ -14,8 +14,8 @@ router.get("/", authenticate, authorize("admin"), async (_req: AuthRequest, res:
   }
 });
 
-// GET /api/users/:id — admin: get single user with enrolled courses
-router.get("/:id", authenticate, authorize("admin"), async (req: AuthRequest, res: Response) => {
+// GET /api/users/:id — requires users:read
+router.get("/:id", authenticate, authorizePermission("users:read"), async (req: AuthRequest, res: Response) => {
   try {
     const user = await User.findById(req.params.id).select("-password").lean();
     if (!user) {
@@ -28,8 +28,8 @@ router.get("/:id", authenticate, authorize("admin"), async (req: AuthRequest, re
   }
 });
 
-// PATCH /api/users/:id/verify — admin: toggle verified status
-router.patch("/:id/verify", authenticate, authorize("admin"), async (req: AuthRequest, res: Response) => {
+// PATCH /api/users/:id/verify — requires users:update
+router.patch("/:id/verify", authenticate, authorizePermission("users:update"), async (req: AuthRequest, res: Response) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) {
@@ -44,8 +44,8 @@ router.patch("/:id/verify", authenticate, authorize("admin"), async (req: AuthRe
   }
 });
 
-// PATCH /api/users/:id/unenroll — admin: remove a course from a student
-router.patch("/:id/unenroll", authenticate, authorize("admin"), async (req: AuthRequest, res: Response) => {
+// PATCH /api/users/:id/unenroll — requires users:update
+router.patch("/:id/unenroll", authenticate, authorizePermission("users:update"), async (req: AuthRequest, res: Response) => {
   try {
     const { courseId } = req.body;
     const user = await User.findByIdAndUpdate(
@@ -63,8 +63,8 @@ router.patch("/:id/unenroll", authenticate, authorize("admin"), async (req: Auth
   }
 });
 
-// DELETE /api/users/:id — admin: delete a student account
-router.delete("/:id", authenticate, authorize("admin"), async (req: AuthRequest, res: Response) => {
+// DELETE /api/users/:id — requires users:delete
+router.delete("/:id", authenticate, authorizePermission("users:delete"), async (req: AuthRequest, res: Response) => {
   try {
     const user = await User.findByIdAndDelete(req.params.id);
     if (!user) {

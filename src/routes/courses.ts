@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import Course from "../models/Course";
-import { authenticate, authorize, AuthRequest } from "../middleware/auth";
+import { authenticate, authorize, authorizePermission, AuthRequest } from "../middleware/auth";
 
 const router = Router();
 
@@ -14,8 +14,8 @@ router.get("/", async (_req: Request, res: Response) => {
   }
 });
 
-// GET /api/courses/all — admin: includes inactive courses
-router.get("/all", authenticate, authorize("admin"), async (_req: AuthRequest, res: Response) => {
+// GET /api/courses/all — requires courses:read
+router.get("/all", authenticate, authorizePermission("courses:read"), async (_req: AuthRequest, res: Response) => {
   try {
     const courses = await Course.find().lean();
     res.json({ success: true, data: courses });
@@ -38,8 +38,8 @@ router.get("/:id", async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/courses — admin only
-router.post("/", authenticate, authorize("admin"), async (req: AuthRequest, res: Response) => {
+// POST /api/courses — requires courses:create
+router.post("/", authenticate, authorizePermission("courses:create"), async (req: AuthRequest, res: Response) => {
   try {
     const course = await Course.create(req.body);
     res.status(201).json({ success: true, data: course });
@@ -48,8 +48,8 @@ router.post("/", authenticate, authorize("admin"), async (req: AuthRequest, res:
   }
 });
 
-// PUT /api/courses/:id — admin only
-router.put("/:id", authenticate, authorize("admin"), async (req: AuthRequest, res: Response) => {
+// PUT /api/courses/:id — requires courses:update
+router.put("/:id", authenticate, authorizePermission("courses:update"), async (req: AuthRequest, res: Response) => {
   try {
     const course = await Course.findOneAndUpdate(
       { id: req.params.id },
@@ -66,8 +66,8 @@ router.put("/:id", authenticate, authorize("admin"), async (req: AuthRequest, re
   }
 });
 
-// PATCH /api/courses/:id/toggle — admin only: toggle active status
-router.patch("/:id/toggle", authenticate, authorize("admin"), async (req: AuthRequest, res: Response) => {
+// PATCH /api/courses/:id/toggle — requires courses:update
+router.patch("/:id/toggle", authenticate, authorizePermission("courses:update"), async (req: AuthRequest, res: Response) => {
   try {
     const course = await Course.findOne({ id: req.params.id });
     if (!course) {
@@ -82,8 +82,8 @@ router.patch("/:id/toggle", authenticate, authorize("admin"), async (req: AuthRe
   }
 });
 
-// DELETE /api/courses/:id — admin only
-router.delete("/:id", authenticate, authorize("admin"), async (req: AuthRequest, res: Response) => {
+// DELETE /api/courses/:id — requires courses:delete
+router.delete("/:id", authenticate, authorizePermission("courses:delete"), async (req: AuthRequest, res: Response) => {
   try {
     const course = await Course.findOneAndDelete({ id: req.params.id });
     if (!course) {

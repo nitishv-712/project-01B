@@ -3,6 +3,8 @@ import express from "express";
 import cors from "cors";
 import { connectDB } from "./config/db";
 import authRouter from "./routes/auth";
+import adminRouter from "./routes/admin";
+import superadminRouter from "./routes/superadmin";
 import coursesRouter from "./routes/courses";
 import statsRouter from "./routes/stats";
 import testimonialsRouter from "./routes/testimonials";
@@ -19,6 +21,8 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/auth", authRouter);
+app.use("/api/admin", adminRouter);
+app.use("/api/superadmin", superadminRouter);
 app.use("/api/courses", coursesRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/testimonials", testimonialsRouter);

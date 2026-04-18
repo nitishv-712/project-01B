@@ -3,8 +3,8 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User";
 import Course from "../models/Course";
-import { authenticate, authorize, AuthRequest } from "../middleware/auth";
-import { JwtPayload } from "../types";
+import { authenticate, authorize, authorizePermission, AuthRequest } from "../middleware/auth";
+import { JwtPayload, ALL_PERMISSIONS } from "../types";
 
 const router = Router();
 
@@ -22,7 +22,7 @@ router.post("/register", async (req: Request, res: Response) => {
       return;
     }
     const user = await User.create({ name, email, password, role: "user" });
-    const token = signToken({ id: user._id.toString(), name: user.name, email: user.email, role: user.role });
+    const token = signToken({ id: user._id.toString(), name: user.name, email: user.email, role: user.role, permissions: [] });
     res.status(201).json({ success: true, data: { token, name: user.name, email: user.email, role: user.role } });
   } catch {
     res.status(400).json({ success: false, error: "Registration failed" });
@@ -38,15 +38,15 @@ router.post("/login", async (req: Request, res: Response) => {
       res.status(401).json({ success: false, error: "Invalid credentials" });
       return;
     }
-    const token = signToken({ id: user._id.toString(), name: user.name, email: user.email, role: user.role });
-    res.json({ success: true, data: { token, name: user.name, email: user.email, role: user.role } });
+    const token = signToken({ id: user._id.toString(), name: user.name, email: user.email, role: user.role, permissions: user.permissions ?? [] });
+    res.json({ success: true, data: { token, name: user.name, email: user.email, role: user.role, permissions: user.permissions ?? [] } });
   } catch {
     res.status(500).json({ success: false, error: "Login failed" });
   }
 });
 
-// POST /api/auth/create-admin — admin only
-router.post("/create-admin", authenticate, authorize("admin"), async (req: AuthRequest, res: Response) => {
+// POST /api/auth/create-admin — superadmin only
+router.post("/create-admin", authenticate, authorize("superadmin"), async (req: AuthRequest, res: Response) => {
   try {
     const { name, email, password } = req.body;
     const exists = await User.findOne({ email });
@@ -84,9 +84,18 @@ router.get("/my-courses", authenticate, authorize("user"), async (req: AuthReque
 });
 
 // PATCH /api/auth/profile — student updates their own profile (avatar, phone, name)
-router.patch("/profile", authenticate, authorize("user"), async (req: AuthRequest, res: Response) => {
+// admin can also update their own profile via profile:manage_own permission
+router.patch("/profile", authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { name, phone, avatar } = req.body;
+    const isSelf = req.user!.role === "user" ||
+      req.user!.role === "superadmin" ||
+      (req.user!.role === "admin" && req.user!.permissions.includes("profile:manage_own"));
+
+    if (!isSelf) {
+      res.status(403).json({ success: false, error: "Forbidden: requires 'profile:manage_own' permission" });
+      return;
+    }
     const user = await User.findByIdAndUpdate(
       req.user!.id,
       { ...(name && { name }), ...(phone && { phone }), ...(avatar && { avatar }) },

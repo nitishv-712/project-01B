@@ -20,6 +20,9 @@ const PORT = process.env.PORT ?? 5000;
 const origins = [
    process.env.CORS_ORIGIN,
    "http://localhost:3000",
+   "http://localhost:3001",
+   "http://localhost:5173",
+   "http://localhost:8080",
 ].filter(Boolean) as string[];
 
 app.use(cors({

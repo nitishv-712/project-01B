@@ -15,7 +15,9 @@ import uploadRouter from "./routes/upload";
 import { errorHandler } from "./middleware/errorHandler";
 
 const app = express();
-const PORT = process.env.PORT ?? 5000;
+
+// Connect to database
+connectDB();
 
 const origins = [
    process.env.CORS_ORIGIN,
@@ -23,6 +25,8 @@ const origins = [
    "http://localhost:3001",
    "http://localhost:5173",
    "http://localhost:8080",
+   // Add your production frontend domain here
+   // "https://your-frontend-domain.vercel.app"
 ].filter(Boolean) as string[];
 
 app.use(cors({
@@ -45,6 +49,11 @@ app.use("/api/seed", seedRouter);
 
 app.use(errorHandler);
 
-connectDB().then(() => {
+// Export for Vercel
+export default app;
+
+// For local development
+if (require.main === module) {
+  const PORT = process.env.PORT ?? 5000;
   app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
-});
+}

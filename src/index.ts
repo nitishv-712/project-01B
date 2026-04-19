@@ -25,8 +25,7 @@ const origins = [
    "http://localhost:3001",
    "http://localhost:5173",
    "http://localhost:8080",
-   // Add your production frontend domain here
-   // "https://your-frontend-domain.vercel.app"
+   "https://website-bice-nine-89.vercel.app"
 ].filter(Boolean) as string[];
 
 app.use(cors({

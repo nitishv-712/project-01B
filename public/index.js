@@ -27,6 +27,7 @@ const origins = [
     "http://localhost:3001",
     "http://localhost:5173",
     "http://localhost:8080",
+    "https://website-bice-nine-89.vercel.app",
     // Add your production frontend domain here
     // "https://your-frontend-domain.vercel.app"
 ].filter(Boolean);

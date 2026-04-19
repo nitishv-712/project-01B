@@ -17,9 +17,16 @@ import { errorHandler } from "./middleware/errorHandler";
 const app = express();
 const PORT = process.env.PORT ?? 5000;
 
+const origins = [
+   process.env.CORS_ORIGIN,
+   "http://localhost:3000",
+].filter(Boolean) as string[];
+
 app.use(cors({
-  origin: 'https://website-bice-nine-89.vercel.app/'
+  origin: origins,
+  credentials: true,
 }));
+
 app.use(express.json());
 
 app.use("/api/auth", authRouter);

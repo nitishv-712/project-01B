@@ -1,17 +1,15 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
-  "outputDirectory": "public",
-  "framework": null,
-  "functions": {
-    "public/index.js": {
-      "runtime": "nodejs18.x"
+  "builds": [
+    {
+      "src": "public/index.js",
+      "use": "@vercel/node"
     }
-  },
+  ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "/public/index.js"
+      "dest": "public/index.js"
     }
   ]
 }

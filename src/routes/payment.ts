@@ -1,5 +1,6 @@
-import { Router, Response } from "express";
+import express, { Router, Response, Request } from "express";
 import crypto from "crypto";
+import Razorpay from "razorpay";
 import Course from "../models/Course";
 import Order from "../models/Order";
 import User from "../models/User";
@@ -7,12 +8,12 @@ import { authenticate, authorize, authorizePermission, AuthRequest } from "../mi
 
 const router = Router();
 
-// POST /api/payment/initiate — student initiates a purchase
-// Creates a pending order and returns a dummy payment session
-// TODO: Replace dummy block with Razorpay order creation when ready:
-//   const razorpay = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET });
-//   const order = await razorpay.orders.create({ amount: course.price * 100, currency: 'INR', receipt: transactionId });
-//   return res.json({ success: true, data: { orderId: order.id, amount: order.amount, currency: 'INR', key: process.env.RAZORPAY_KEY_ID } });
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID!,
+  key_secret: process.env.RAZORPAY_KEY_SECRET!,
+});
+
+// POST /api/payment/initiate — creates a Razorpay order
 router.post("/initiate", authenticate, authorize("user"), async (req: AuthRequest, res: Response) => {
   try {
     const { courseId } = req.body;
@@ -34,28 +35,31 @@ router.post("/initiate", authenticate, authorize("user"), async (req: AuthReques
       return;
     }
 
-    // Generate a dummy transaction id
-    const transactionId = `dummy_${crypto.randomBytes(8).toString("hex")}`;
+    const razorpayOrder = await razorpay.orders.create({
+      amount: course.price * 100, // paise
+      currency: "INR",
+      receipt: `receipt_${crypto.randomBytes(8).toString("hex")}`,
+    });
 
     const order = await Order.create({
       userId: req.user!.id,
       courseId,
       amount: course.price,
       status: "pending",
-      paymentMethod: "dummy",
-      transactionId,
+      paymentMethod: "razorpay",
+      transactionId: razorpayOrder.id,
     });
 
-    // TODO: When Razorpay is ready, return Razorpay order details here instead
     res.status(201).json({
       success: true,
       data: {
         orderId: order._id,
-        transactionId,
-        amount: course.price,
+        razorpayOrderId: razorpayOrder.id,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency,
+        key: process.env.RAZORPAY_KEY_ID,
         courseId,
         courseTitle: course.title,
-        paymentMethod: "dummy",
       },
     });
   } catch {
@@ -63,25 +67,27 @@ router.post("/initiate", authenticate, authorize("user"), async (req: AuthReques
   }
 });
 
-// POST /api/payment/confirm — confirms payment and enrolls the student
-// For dummy: just pass the transactionId back to confirm
-// TODO: Replace dummy verification with Razorpay signature verification:
-//   const body = razorpay_order_id + "|" + razorpay_payment_id;
-//   const expectedSignature = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!).update(body).digest("hex");
-//   if (expectedSignature !== razorpay_signature) return res.status(400).json({ success: false, error: "Invalid payment signature" });
+// POST /api/payment/confirm — verifies Razorpay signature and enrolls student
 router.post("/confirm", authenticate, authorize("user"), async (req: AuthRequest, res: Response) => {
   try {
-    const { transactionId } = req.body;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
-    const order = await Order.findOne({ transactionId, userId: req.user!.id, status: "pending" });
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest("hex");
+
+    if (expectedSignature !== razorpay_signature) {
+      res.status(400).json({ success: false, error: "Invalid payment signature" });
+      return;
+    }
+
+    const order = await Order.findOne({ transactionId: razorpay_order_id, userId: req.user!.id, status: "pending" });
     if (!order) {
       res.status(404).json({ success: false, error: "Order not found or already processed" });
       return;
     }
 
-    // TODO: Add Razorpay signature verification here before marking as paid
-
-    // Enroll student first, then mark order paid — both in one shot
     const user = await User.findByIdAndUpdate(
       req.user!.id,
       { $addToSet: { enrolledCourses: order.courseId } },
@@ -93,6 +99,7 @@ router.post("/confirm", authenticate, authorize("user"), async (req: AuthRequest
     }
 
     order.status = "paid";
+    order.transactionId = razorpay_payment_id;
     await order.save();
 
     res.json({
@@ -107,6 +114,22 @@ router.post("/confirm", authenticate, authorize("user"), async (req: AuthRequest
   } catch {
     res.status(500).json({ success: false, error: "Failed to confirm payment" });
   }
+});
+
+// POST /api/payment/webhook — Razorpay webhook handler
+router.post("/webhook", express.raw({ type: "application/json" }), (req: Request, res: Response) => {
+  const signature = req.headers["x-razorpay-signature"] as string;
+  const expectedSignature = crypto
+    .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET!)
+    .update(req.body)
+    .digest("hex");
+
+  if (expectedSignature !== signature) {
+    res.status(400).json({ success: false, error: "Invalid webhook signature" });
+    return;
+  }
+
+  res.json({ success: true });
 });
 
 // GET /api/payment/orders — student views their own order history

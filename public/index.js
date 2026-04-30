@@ -33,6 +33,7 @@ app.use((0, cors_1.default)({
     origin: origins,
     credentials: true,
 }));
+app.use("/api/payment/webhook", express_1.default.raw({ type: "application/json" }));
 app.use(express_1.default.json());
 app.use("/api/auth", auth_1.default);
 app.use("/api/admin", admin_1.default);

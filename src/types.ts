@@ -3,7 +3,6 @@ export interface Lesson {
   title: string;
   duration?: string;    // e.g. "12:34"
   videoId?: string;     // Bunny Stream video GUID
-  free: boolean;        // true = visible as preview without enrollment
 }
 
 export interface CurriculumSection {

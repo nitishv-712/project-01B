@@ -6,8 +6,7 @@ const LessonSchema = new Schema<Lesson>(
     lessonId: { type: String, required: true },
     title: { type: String, required: true },
     duration: { type: String, default: null },
-    videoId: { type: String, default: null },   // Bunny Stream video GUID
-    free: { type: Boolean, default: false },
+    videoId: { type: String, default: null },
   },
   { _id: false }
 );

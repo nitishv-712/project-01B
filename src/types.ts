@@ -1,14 +1,17 @@
+export interface Lesson {
+  lessonId: string;     // unique within the course e.g. "s1-l1"
+  title: string;
+  duration?: string;    // e.g. "12:34"
+  videoId?: string;     // Bunny Stream video GUID
+  free: boolean;        // true = visible as preview without enrollment
+}
+
 export interface CurriculumSection {
   section: string;
-  lessons: number;
+  lessons: Lesson[];
 }
 
 export type OrderStatus = 'pending' | 'paid' | 'failed';
-
-export interface VideoMeta {
-  title?: string;
-  description?: string;
-}
 
 export interface ICourse {
   id: string;
@@ -16,7 +19,7 @@ export interface ICourse {
   subtitle: string;
   instructor: string;
   duration: string;
-  lessons: number;
+  lessons: number;        // total lesson count (denormalized for display)
   language: string;
   discount: number;
   originalPrice: number;
@@ -31,9 +34,7 @@ export interface ICourse {
   curriculum: CurriculumSection[];
   featured: boolean;
   active: boolean;
-  videoPath?: string;   // Supabase storage path — private, enrolled students only
-  previewUrl?: string;  // public preview URL e.g. YouTube embed — visible to all
-  videoMeta?: VideoMeta; // optional title and description for the video
+  previewUrl?: string;  // public trailer URL e.g. YouTube embed — visible to all
 }
 
 export interface IOrder {

@@ -2,9 +2,18 @@ import { Router, Request, Response } from "express";
 import Course from "../models/Course";
 import Stats from "../models/Stats";
 import Testimonial from "../models/Testimonial";
-import { ICourse, IStats, ITestimonial } from "../types";
+import { ICourse, IStats, ITestimonial, Lesson } from "../types";
 
 const router = Router();
+
+// Generate placeholder lessons for a section (no video yet, admin uploads later)
+function makeLessons(sectionSlug: string, count: number): Lesson[] {
+  return Array.from({ length: count }, (_, i) => ({
+    lessonId: `${sectionSlug}-l${i + 1}`,
+    title: `Lesson ${i + 1}`,
+    free: i === 0, // first lesson of each section is free preview
+  }));
+}
 
 const seedCourses: ICourse[] = [
   {
@@ -26,11 +35,11 @@ const seedCourses: ICourse[] = [
     description: "Comprehensive Excel course covering formulas, pivot tables, charts, and automation.",
     whatYouLearn: ["Formulas & Functions", "Pivot Tables", "Charts & Dashboards", "Macros & VBA"],
     curriculum: [
-      { section: "Excel Fundamentals", lessons: 8 },
-      { section: "Formulas & Functions", lessons: 12 },
-      { section: "Pivot Tables", lessons: 10 },
-      { section: "Charts & Visualization", lessons: 9 },
-      { section: "Macros & Automation", lessons: 14 },
+      { section: "Excel Fundamentals",    lessons: makeLessons("excel-s1", 8) },
+      { section: "Formulas & Functions",  lessons: makeLessons("excel-s2", 12) },
+      { section: "Pivot Tables",          lessons: makeLessons("excel-s3", 10) },
+      { section: "Charts & Visualization",lessons: makeLessons("excel-s4", 9) },
+      { section: "Macros & Automation",   lessons: makeLessons("excel-s5", 14) },
     ],
     featured: true,
     active: true,
@@ -54,11 +63,11 @@ const seedCourses: ICourse[] = [
     description: "Learn Power BI from scratch — data modeling, DAX, and interactive dashboards.",
     whatYouLearn: ["Data Modeling", "DAX Formulas", "Interactive Dashboards", "Power Query"],
     curriculum: [
-      { section: "Power BI Basics", lessons: 10 },
-      { section: "Data Modeling", lessons: 12 },
-      { section: "DAX", lessons: 15 },
-      { section: "Dashboards", lessons: 13 },
-      { section: "Publishing & Sharing", lessons: 10 },
+      { section: "Power BI Basics",       lessons: makeLessons("pbi-s1", 10) },
+      { section: "Data Modeling",         lessons: makeLessons("pbi-s2", 12) },
+      { section: "DAX",                   lessons: makeLessons("pbi-s3", 15) },
+      { section: "Dashboards",            lessons: makeLessons("pbi-s4", 13) },
+      { section: "Publishing & Sharing",  lessons: makeLessons("pbi-s5", 10) },
     ],
     featured: true,
     active: true,
@@ -82,11 +91,11 @@ const seedCourses: ICourse[] = [
     description: "Master SQL for data analysis — from basic queries to advanced joins and window functions.",
     whatYouLearn: ["SELECT Queries", "Joins", "Aggregations", "Window Functions", "Stored Procedures"],
     curriculum: [
-      { section: "SQL Basics", lessons: 10 },
-      { section: "Filtering & Sorting", lessons: 8 },
-      { section: "Joins", lessons: 10 },
-      { section: "Aggregations", lessons: 9 },
-      { section: "Advanced SQL", lessons: 8 },
+      { section: "SQL Basics",            lessons: makeLessons("sql-s1", 10) },
+      { section: "Filtering & Sorting",   lessons: makeLessons("sql-s2", 8) },
+      { section: "Joins",                 lessons: makeLessons("sql-s3", 10) },
+      { section: "Aggregations",          lessons: makeLessons("sql-s4", 9) },
+      { section: "Advanced SQL",          lessons: makeLessons("sql-s5", 8) },
     ],
     featured: true,
     active: true,
@@ -110,11 +119,11 @@ const seedCourses: ICourse[] = [
     description: "Learn Python for data analysis using Pandas, NumPy, and Matplotlib.",
     whatYouLearn: ["Python Basics", "Pandas", "NumPy", "Matplotlib", "Data Cleaning"],
     curriculum: [
-      { section: "Python Fundamentals", lessons: 15 },
-      { section: "Pandas", lessons: 18 },
-      { section: "NumPy", lessons: 12 },
-      { section: "Visualization", lessons: 14 },
-      { section: "Projects", lessons: 13 },
+      { section: "Python Fundamentals",   lessons: makeLessons("py-s1", 15) },
+      { section: "Pandas",                lessons: makeLessons("py-s2", 18) },
+      { section: "NumPy",                 lessons: makeLessons("py-s3", 12) },
+      { section: "Visualization",         lessons: makeLessons("py-s4", 14) },
+      { section: "Projects",              lessons: makeLessons("py-s5", 13) },
     ],
     featured: false,
     active: true,

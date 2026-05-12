@@ -95,7 +95,7 @@ interface Course {
   curriculum: CurriculumSection[]
   featured: boolean
   active: boolean
-  videoPath?: string              // Supabase storage path (private)
+  videoPath?: string              // Bunny CDN public URL (access controlled via signed URLs)
   previewUrl?: string             // public preview URL
   videoMeta?: VideoMeta
   createdAt: string               // ISO date
@@ -1234,7 +1234,7 @@ image: File    // required — image file (jpg, png, webp) max 5 MB
 ---
 
 ### POST /api/upload/course-video
-Auth: permission `media:upload`. Uploads a course video to Supabase. Replaces existing video if one exists.
+Auth: permission `media:upload`. Uploads a course video to Bunny CDN. Replaces existing video if one exists.
 
 **Request:** `multipart/form-data`
 ```
@@ -1250,7 +1250,7 @@ description?: string // optional — video description metadata
   success: true,
   data: {
     courseId: string
-    videoPath: string      // Supabase storage path (private)
+    videoUrl: string       // full Bunny CDN URL
     size: number           // bytes
     mimetype: string
     originalName: string
@@ -1265,12 +1265,12 @@ description?: string // optional — video description metadata
 | `400` | `No file provided` |
 | `400` | `courseId is required` |
 | `404` | `Course not found` |
-| `500` | `Video upload failed` or Supabase error message |
+| `500` | `Video upload failed` or Bunny API error message |
 
 ---
 
 ### DELETE /api/upload/course-video/:courseId
-Auth: permission `media:delete`. Removes video from Supabase and clears `videoPath` on the course.
+Auth: permission `media:delete`. Removes video from Bunny CDN and clears `videoPath` on the course.
 
 **Response `200`:**
 ```ts
@@ -1286,17 +1286,16 @@ Auth: permission `media:delete`. Removes video from Supabase and clears `videoPa
 |--------|-------|
 | `400` | `No video attached to this course` |
 | `404` | `Course not found` |
-| `500` | `Failed to remove video` or Supabase error message |
+| `500` | `Failed to remove video` or Bunny API error message |
 
 ---
 
 ### POST /api/upload/video-url
-Auth: `user`. Returns a signed URL (1 hour expiry) to stream a course video. Only works if the user is enrolled.
+Auth: `user`. Returns a Bunny CDN signed URL (1 hour expiry) to stream a course video. Only works if the user is enrolled.
 
 **Request body:**
 ```ts
 {
-  videoPath: string   // required — Supabase storage path from course.videoPath
   courseId: string    // required — course id slug
 }
 ```
@@ -1306,7 +1305,7 @@ Auth: `user`. Returns a signed URL (1 hour expiry) to stream a course video. Onl
 {
   success: true,
   data: {
-    url: string        // signed Supabase URL, valid for 1 hour
+    url: string        // Bunny CDN signed URL, valid for 1 hour
     expiresIn: 3600    // seconds
   }
 }
@@ -1317,7 +1316,8 @@ Auth: `user`. Returns a signed URL (1 hour expiry) to stream a course video. Onl
 | Status | Error |
 |--------|-------|
 | `403` | `Not enrolled in this course` |
-| `500` | `Failed to get video URL` or Supabase error message |
+| `404` | `Video not found` |
+| `500` | `Failed to get video URL` or Bunny error message |
 
 ---
 

@@ -1,8 +1,22 @@
 import mongoose, { Schema, Model } from "mongoose";
-import { ICourse, CurriculumSection, VideoMeta } from "../types";
+import { ICourse, CurriculumSection, Lesson } from "../types";
+
+const LessonSchema = new Schema<Lesson>(
+  {
+    lessonId: { type: String, required: true },
+    title: { type: String, required: true },
+    duration: { type: String, default: null },
+    videoId: { type: String, default: null },   // Bunny Stream video GUID
+    free: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
 
 const CurriculumSchema = new Schema<CurriculumSection>(
-  { section: String, lessons: Number },
+  {
+    section: { type: String, required: true },
+    lessons: { type: [LessonSchema], default: [] },
+  },
   { _id: false }
 );
 
@@ -28,12 +42,7 @@ const CourseSchema = new Schema<ICourse>(
     curriculum: [CurriculumSchema],
     featured: { type: Boolean, default: false },
     active: { type: Boolean, default: true },
-    videoPath: { type: String, default: null },  // Supabase storage path
-    previewUrl: { type: String, default: null }, // public preview URL
-    videoMeta: {
-      title: { type: String, default: null },
-      description: { type: String, default: null },
-    },
+    previewUrl: { type: String, default: null },
   },
   { timestamps: true }
 );

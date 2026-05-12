@@ -1,6 +1,7 @@
 import { Router, Response } from "express";
 import path from "path";
 import { supabase, BUCKETS } from "../config/supabase";
+import { bunnyCreateVideo, bunnyUploadVideo, bunnyDeleteVideo, bunnyStreamUrl, bunnyEmbedUrl } from "../config/bunny";
 import { authenticate, authorize, authorizePermission, AuthRequest } from "../middleware/auth";
 import { uploadImage, uploadVideo } from "../middleware/upload";
 import User from "../models/User";
@@ -90,10 +91,6 @@ router.post(
   }
 );
 
-// ── POST /api/upload/course-video — admin uploads course video ────────────────
-// Accepts: multipart/form-data
-// Fields:  video (file, required), courseId (string, required), title (string, optional), description (string, optional)
-// Uploads to Supabase videos bucket, saves videoPath + videoMeta to course document
 router.post(
   "/course-video",
   authenticate,
@@ -106,10 +103,10 @@ router.post(
         return;
       }
 
-      const { courseId, title, description } = req.body;
+      const { courseId, lessonId, title } = req.body;
 
-      if (!courseId) {
-        res.status(400).json({ success: false, error: "courseId is required" });
+      if (!courseId || !lessonId) {
+        res.status(400).json({ success: false, error: "courseId and lessonId are required" });
         return;
       }
 
@@ -119,33 +116,42 @@ router.post(
         return;
       }
 
-      // Delete old video from Supabase if one exists
-      if (course.videoPath) {
-        await supabase.storage.from(BUCKETS.courseVideos).remove([course.videoPath]);
+      // Find the lesson across all sections
+      let targetLesson: any = null;
+      for (const section of course.curriculum) {
+        const lesson = (section.lessons as any[]).find((l: any) => l.lessonId === lessonId);
+        if (lesson) { targetLesson = lesson; break; }
+      }
+      if (!targetLesson) {
+        res.status(404).json({ success: false, error: "Lesson not found" });
+        return;
       }
 
-      const filePath = `${courseId}/${randomName(req.file.originalname)}`;
+      // Delete old video from Bunny Stream if one exists
+      if (targetLesson.videoId) {
+        await bunnyDeleteVideo(targetLesson.videoId).catch(() => {});
+      }
 
-      const { error } = await supabase.storage
-        .from(BUCKETS.courseVideos)
-        .upload(filePath, req.file.buffer, {
-          contentType: req.file.mimetype,
-          upsert: true,
-        });
+      // Step 1 — create video object in Bunny Stream library
+      const videoTitle = title || `${courseId}-${lessonId}`;
+      const videoId = await bunnyCreateVideo(videoTitle);
 
-      if (error) throw new Error(error.message);
+      // Step 2 — upload the actual file
+      await bunnyUploadVideo(videoId, req.file.buffer);
 
-      // Save videoPath and optional meta to course
-      course.videoPath = filePath;
-      if (title) course.videoMeta = { ...course.videoMeta, title };
-      if (description) course.videoMeta = { ...course.videoMeta, description };
+      // Save videoId to the lesson
+      targetLesson.videoId = videoId;
+      course.markModified("curriculum");
       await course.save();
 
       res.json({
         success: true,
         data: {
           courseId,
-          videoPath: filePath,
+          lessonId,
+          videoId,
+          embedUrl: bunnyEmbedUrl(videoId),
+          streamUrl: bunnyStreamUrl(videoId),
           size: req.file.size,
           mimetype: req.file.mimetype,
           originalName: req.file.originalname,
@@ -157,9 +163,9 @@ router.post(
   }
 );
 
-// ── DELETE /api/upload/course-video/:courseId — admin removes a course video ──
+// ── DELETE /api/upload/course-video/:courseId/:lessonId — admin removes a lesson video ──
 router.delete(
-  "/course-video/:courseId",
+  "/course-video/:courseId/:lessonId",
   authenticate,
   authorizePermission("media:delete"),
   async (req: AuthRequest, res: Response) => {
@@ -170,51 +176,83 @@ router.delete(
         return;
       }
 
-      if (!course.videoPath) {
-        res.status(400).json({ success: false, error: "No video attached to this course" });
+      let targetLesson: any = null;
+      for (const section of course.curriculum) {
+        const lesson = (section.lessons as any[]).find((l: any) => l.lessonId === req.params.lessonId);
+        if (lesson) { targetLesson = lesson; break; }
+      }
+      if (!targetLesson) {
+        res.status(404).json({ success: false, error: "Lesson not found" });
         return;
       }
 
-      const { error } = await supabase.storage
-        .from(BUCKETS.courseVideos)
-        .remove([course.videoPath]);
+      if (!targetLesson.videoId) {
+        res.status(400).json({ success: false, error: "No video attached to this lesson" });
+        return;
+      }
 
-      if (error) throw new Error(error.message);
-
-      course.videoPath = undefined;
+      await bunnyDeleteVideo(targetLesson.videoId);
+      targetLesson.videoId = null;
+      course.markModified("curriculum");
       await course.save();
 
-      res.json({ success: true, message: "Video removed from course" });
+      res.json({ success: true, message: "Video removed from lesson" });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message ?? "Failed to remove video" });
     }
   }
 );
 
-// ── POST /api/upload/video-url — get a temporary signed URL for a video ───────
-// Student requests a signed URL to stream a video they are enrolled in
+// ── POST /api/upload/video-url — get stream/embed URLs for an enrolled student ──
 router.post(
   "/video-url",
   authenticate,
   authorize("user"),
   async (req: AuthRequest, res: Response) => {
     try {
-      const { videoPath, courseId } = req.body;
+      const { courseId, lessonId } = req.body;
 
-      // Verify student is enrolled in the course
       const user = await User.findById(req.user!.id);
-      if (!user || !user.enrolledCourses.includes(courseId)) {
+      if (!user) {
+        res.status(404).json({ success: false, error: "User not found" });
+        return;
+      }
+
+      const course = await Course.findOne({ id: courseId });
+      if (!course) {
+        res.status(404).json({ success: false, error: "Course not found" });
+        return;
+      }
+
+      // Find the lesson
+      let targetLesson: any = null;
+      for (const section of course.curriculum) {
+        const lesson = (section.lessons as any[]).find((l: any) => l.lessonId === lessonId);
+        if (lesson) { targetLesson = lesson; break; }
+      }
+      if (!targetLesson) {
+        res.status(404).json({ success: false, error: "Lesson not found" });
+        return;
+      }
+
+      // Free lessons are accessible without enrollment
+      if (!targetLesson.free && !user.enrolledCourses.includes(courseId)) {
         res.status(403).json({ success: false, error: "Not enrolled in this course" });
         return;
       }
 
-      const { data, error } = await supabase.storage
-        .from(BUCKETS.courseVideos)
-        .createSignedUrl(videoPath, 60 * 60); // 1 hour expiry
+      if (!targetLesson.videoId) {
+        res.status(404).json({ success: false, error: "Video not found" });
+        return;
+      }
 
-      if (error || !data) throw new Error(error?.message ?? "Failed to generate URL");
-
-      res.json({ success: true, data: { url: data.signedUrl, expiresIn: 3600 } });
+      res.json({
+        success: true,
+        data: {
+          embedUrl: bunnyEmbedUrl(targetLesson.videoId),
+          streamUrl: bunnyStreamUrl(targetLesson.videoId),
+        },
+      });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message ?? "Failed to get video URL" });
     }

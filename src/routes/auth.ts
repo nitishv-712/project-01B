@@ -16,6 +16,10 @@ function signToken(payload: JwtPayload): string {
 router.post("/register", async (req: Request, res: Response) => {
   try {
     const { name, email, password } = req.body;
+    if (!name || !email || !password) {
+      res.status(400).json({ success: false, error: "Name, email, and password are required" });
+      return;
+    }
     const exists = await User.findOne({ email });
     if (exists) {
       res.status(400).json({ success: false, error: "Email already registered" });
@@ -24,8 +28,9 @@ router.post("/register", async (req: Request, res: Response) => {
     const user = await User.create({ name, email, password, role: "user" });
     const token = signToken({ id: user._id.toString(), name: user.name, email: user.email, role: user.role, permissions: [] });
     res.status(201).json({ success: true, data: { token, name: user.name, email: user.email, role: user.role } });
-  } catch {
-    res.status(400).json({ success: false, error: "Registration failed" });
+  } catch (err: any) {
+    console.error("Register error:", err);
+    res.status(500).json({ success: false, error: "Registration failed" });
   }
 });
 
@@ -33,6 +38,10 @@ router.post("/register", async (req: Request, res: Response) => {
 router.post("/login", async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
+    if (!email || !password) {
+      res.status(400).json({ success: false, error: "Email and password are required" });
+      return;
+    }
     const user = await User.findOne({ email });
     if (!user || !(await bcrypt.compare(password, user.password))) {
       res.status(401).json({ success: false, error: "Invalid credentials" });
@@ -40,7 +49,8 @@ router.post("/login", async (req: Request, res: Response) => {
     }
     const token = signToken({ id: user._id.toString(), name: user.name, email: user.email, role: user.role, permissions: user.permissions ?? [] });
     res.json({ success: true, data: { token, name: user.name, email: user.email, role: user.role, permissions: user.permissions ?? [] } });
-  } catch {
+  } catch (err: any) {
+    console.error("Login error:", err);
     res.status(500).json({ success: false, error: "Login failed" });
   }
 });
@@ -49,6 +59,10 @@ router.post("/login", async (req: Request, res: Response) => {
 router.post("/create-admin", authenticate, authorize("superadmin"), async (req: AuthRequest, res: Response) => {
   try {
     const { name, email, password } = req.body;
+    if (!name || !email || !password) {
+      res.status(400).json({ success: false, error: "Name, email, and password are required" });
+      return;
+    }
     const exists = await User.findOne({ email });
     if (exists) {
       res.status(400).json({ success: false, error: "Email already registered" });
@@ -56,8 +70,9 @@ router.post("/create-admin", authenticate, authorize("superadmin"), async (req: 
     }
     const user = await User.create({ name, email, password, role: "admin" });
     res.status(201).json({ success: true, data: { name: user.name, email: user.email, role: user.role } });
-  } catch {
-    res.status(400).json({ success: false, error: "Failed to create admin" });
+  } catch (err: any) {
+    console.error("Create admin error:", err);
+    res.status(500).json({ success: false, error: "Failed to create admin" });
   }
 });
 
@@ -106,8 +121,9 @@ router.patch("/profile", authenticate, async (req: AuthRequest, res: Response) =
       return;
     }
     res.json({ success: true, data: user });
-  } catch {
-    res.status(400).json({ success: false, error: "Failed to update profile" });
+  } catch (err: any) {
+    console.error("Update profile error:", err);
+    res.status(500).json({ success: false, error: "Failed to update profile" });
   }
 });
 
